@@ -1,25 +1,28 @@
-global relation:table[addr] of set[string];
+global agentTable :table[addr] of set[string] = table();
 event http_header(c: connection, is_orig: bool, name: string, value: string)
 {
-	if(is_orig)
+	local orig_addr: addr = c$id$orig_h;
+	if (c$http?$user_agent)
 	{
-	        if(name == "User-Agent")
+		local agent: string = to_lower(c$http$user_agent);
+		if (orig_addr in agentTable) 
 		{
-		        if(!(to_lower(value) in relation[c$id$orig_h]))
-			{
-			    add relation[c$id$orig_h][to_lower(value)];					
-			}						
-		}					
-	}	
+			add agentTable[orig_addr][agent];
+		} 
+		else 
+		{
+			agentTable[orig_addr] = set(agent);
+		}
+	}
 }
 
-event zeek_done()
+event zeek_done() 
 {
-	for(src_ip in relation)
+	for (orig_addr in agentTable) 
 	{
-		if(|relation[src_ip]|>=3)
+		if (|agentTable[orig_addr]| >= 3)
 		{
-			 print fmt("%s is a proxy", src_ip);
+			print(addr_to_uri(orig_addr) + " is a proxy");
 		}
 	}
 }
